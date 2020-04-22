@@ -1,0 +1,118 @@
+
+library(optimx)
+library(RCurl)
+library(RLRsim)
+library(lme4)
+library(rstanarm)
+library(faraway)
+library(nnet)
+library("numDeriv")
+library("reshape2")
+library("plyr")
+library("RColorBrewer")
+data1 <- read.csv(file.choose())
+attach(data1)
+#contigency table and log-poisson. There are three variable. Here is only one example for two of them.
+y <- c(12,5,3,8)
+political <- gl(2,2,labels=c("R","B"))
+urban <- gl(2,1,4,labels=c("L","H"))
+lyuan <- data.frame(y,political,urban);lyuan
+lcct <- xtabs(y~political+urban);lcct
+fpi <- prop.table(lcct)
+spi <- prop.table(xtabs(y~political))
+cpi <- prop.table(xtabs(y~urban))
+npi <- outer(spi,cpi)
+pchisq(2*sum(lcct*log(fpi/npi)),1,lower=F)
+pmod <- glm(y~political+urban,family=poisson);summary(pmod)
+pchisq(5.1852,1,lower=F)
+#Use Glmer to fit the reduced and full model
+election_glmer_laplace = glmer(cbind(Biden,Sanders)~
+                                   African.American...+Political.leanings+ log(Population)+
+                                   +Age+(1|Crime.rate), 
+                                family=binomial(link="logit"),
+                                nAGQ=25,
+                                data=data1)
+
+election_glmer_laplace1 = glmer(cbind(Biden,Sanders)~
+                                   African.American...+Political.leanings+ log(Population)+
+                                  +Age+log(GDP...per.capita)+Vote.Mode+(1|Crime.rate), 
+                               family=binomial(link="logit"),
+                               nAGQ=25,
+                               data=data1)
+summary(election_glmer_laplace)
+summary(election_glmer_laplace1)
+#Prediction by GLMM
+newdat <- data.frame(African.American...=32.7,Political.leanings="R",Population=4700000,Age=37.2,Crime.rate="E")
+ilogit(predict(election_glmer_laplace,newdat))
+newdat$distance <- predict(election_glmer_laplace,newdata,re.form=NA)
+mm <- model.matrix(terms(election_glmer_laplace),newdat)
+#LRT
+anova(election_glmer_laplace,election_glmer_laplace1,test = 'Chisq')
+
+#checking overdispersion
+overdisp_fun <- function(model) {
+   rdf <- df.residual(model)
+   rp <- residuals(model,type="pearson")
+   Pearson.chisq <- sum(rp^2)-2.28*rdf
+   prat <- Pearson.chisq/rdf
+   pval <- pchisq(Pearson.chisq, df=rdf, lower.tail=FALSE)
+   c(chisq=Pearson.chisq,ratio=prat,rdf=rdf,p=pval)
+}
+overdisp_fun(election_glmer_laplace)
+str(p0 <- predict(election_glmer_laplace))  
+
+#Testing random effects
+election_glmer_laplace2 = glm(cbind(Biden,Sanders)~
+                                  African.American...+Political.leanings+ log(Population)+
+                                  +Age, 
+                               family=binomial(link="logit"),
+                               data=data1)
+
+summary(election_glmer_laplace2)
+exactLRT(election_glmer_laplace,election_glmer_laplace2)
+lrstat <- numeric(100);
+#parametric Bootstrap
+for( i in 1:500 ){
+   y <- unlist(simulate(election_glmer_laplace2));
+   bnull <- glm(cbind(Biden,Sanders)~
+                   African.American...+Political.leanings+ log(Population)+
+                   +Age, 
+                family=binomial(link="logit"),
+                data=data1);
+   balt <- glmer(cbind(Biden,Sanders)~
+                    African.American...+Political.leanings+ log(Population)+
+                    +Age+(1|Crime.rate), 
+                 family=binomial(link="logit"),
+                 nAGQ=1,
+                 data=data1);
+   lrstat[i] <- 2*as.numeric(logLik(balt)-logLik(bnull));
+}
+mean(lrstat>2*as.numeric(logLik(election_glmer_laplace)-logLik(election_glmer_laplace2)))
+pchisq(2*as.numeric(logLik(election_glmer_laplace)-logLik(election_glmer_laplace2)),1,lower=F)
+
+#Multinomial
+election_multi <- multinom(cbind(SandersM,BidenM,othersumM)~African.American...+Political.leanings+ log(Population)+Age,data = data1)
+summary(election_multi)
+2*pnorm(0.57,lower.tail = F)
+newdat <- data.frame(African.American...=32.7,Political.leanings="R",Population=4700000,Age=37.2)
+predict(election_multi,newdat,type = "prob")
+#Solving warning meassage
+#check sigularity
+tt <- getME(election_glmer_laplace1,"theta")
+ll <- getME(election_glmer_laplace1,"lower")
+min(tt[ll==0])
+#Restart
+ss <- getME(election_glmer_laplace1,c("theta","fixef"))
+m2 <- update(election_glmer_laplace1,start=ss,control=glmerControl(optCtrl=list(maxfun=2e4)))
+#Try different optimizers
+m3 <- update(election_glmer_laplace1,start=ss,control=glmerControl(optimizer="bobyqa",
+                                                 optCtrl=list(maxfun=2e5)))
+summary(m3)
+afurl <- "https://raw.githubusercontent.com/lme4/lme4/master/misc/issues/allFit.R"
+eval(parse(text=getURL(afurl)))
+aa <- allFit(m2)
+is.OK <- sapply(aa,is,"merMod")  ## nlopt NELDERMEAD failed, others succeeded
+aa.OK <- aa[is.OK]
+lapply(aa.OK,function(x) x@optinfo$conv$lme4$messages)
+
+
