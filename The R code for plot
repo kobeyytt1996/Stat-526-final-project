@@ -1,0 +1,49 @@
+election <- read.csv(file.choose())
+summary(election)
+
+library(ggplot2)
+library(GGally)
+library(reshape2)
+library(knitr)
+library(ggthemes)
+colnames(election)
+
+# votes summary
+mydata<-melt(election,id.vars=c("Abbreviation","Political.leanings", "Sex.ratio..male.to.female.","Age", "Crime.rate", "African.American...", "Urban...","Population.mln.","GDP...per.capita","sum"),variable.name="Name",value.name="Votes",measure.vars=c("Joe.Biden","Bernie.Sanders","Elizabeth.Warren","Micheal.Bloomberg","Pete.Buttigieg"))
+ggplot(mydata,aes(Abbreviation, y=Votes/sum,fill=Name))+geom_bar(stat='identity',position="dodge")
+
+election$log_pop <- log(election$Population.mln.*1000000)
+election$log_GDP <- log(election$GDP...per.capita)
+
+# Age, log(Population*1000000),log(GDP),African
+ggpairs(election[,c("Age","log_pop","African.American...","log_GDP")])+ theme_minimal()
+
+# log(Biden/Sanders) ~ African
+ggplot(election, aes(African.American...,log(Biden/Sanders)))+geom_point()+geom_smooth()+theme_gdocs()
+
+###
+data1 <- melt(election,id.vars=c("Abbreviation","Political.leanings", "Sex.ratio..male.to.female.","Age", "Crime.rate", "African.American...", "Urban...","Population.mln.","GDP...per.capita","sum"),variable.name="Name",value.name="Votes",measure.vars=c("Joe.Biden","Bernie.Sanders"))
+
+# Poliyical vs. votes
+ggplot(data1,aes(Name,Votes/sum,fill=Political.leanings))+geom_boxplot(width=0.5)+scale_fill_manual(values=c('#00BFC4','#F8766D'))
+
+# Sex vs. votes
+ggplot(data1, aes(Sex.ratio..male.to.female.,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# Age vs. votes
+ggplot(data1, aes(Age,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# Crime.rate vs. votes
+ggplot(data1, aes(Crime.rate,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# African vs. votes
+ggplot(data1, aes(African.American...,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# Urban vs. votes
+ggplot(data1, aes(Urban...,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# Population vs. votes
+ggplot(data1, aes(Population.mln.,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
+
+# GDP vs. votes
+ggplot(data1, aes(GDP...per.capita,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
