@@ -36,6 +36,7 @@ ggplot(data1, aes(Age,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+
 # Crime.rate vs. votes
 ggplot(data1, aes(Crime.rate,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
 
+
 # African vs. votes
 ggplot(data1, aes(African.American...,Votes/sum,col=Name,fill=Name))+geom_point()+geom_smooth()+theme_gdocs()
 
