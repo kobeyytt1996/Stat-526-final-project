@@ -116,3 +116,4 @@ aa.OK <- aa[is.OK]
 lapply(aa.OK,function(x) x@optinfo$conv$lme4$messages)
 
 
+
